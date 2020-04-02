@@ -104,24 +104,27 @@ module Special_builtin_support = struct
 
   module Sites_locations = struct
     type t =
-      { data_module : string }
+      { data_module : string; plugins : bool }
 
-    let to_dyn { data_module } =
+    let to_dyn { data_module; plugins } =
       let open Dyn.Encoder in
       record
-        [ ("data_module", string data_module)
+        [ ("data_module", string data_module);
+          ("plugins", bool plugins)
         ]
 
     let decode =
       let open Dune_lang.Decoder in
       fields
-        (let+ data_module = field "data_module" string in
-         { data_module })
+        (let+ data_module = field "data_module" string
+         and+ plugins = field_b "plugins" in
+         { data_module; plugins })
 
-    let encode { data_module } =
+    let encode { data_module; plugins } =
       let open Dune_lang.Encoder in
       record_fields
-        [ field "data_module" string data_module
+        [ field "data_module" string data_module;
+          field_b "plugins" plugins
         ]
   end
 

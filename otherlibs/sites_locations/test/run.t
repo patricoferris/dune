@@ -114,10 +114,6 @@ Test with a relocatable installation
 
   $ dune install --prefix _install_relocatable --relocatable 2> /dev/null
 
-Hack because findlib wants to load all the packages even the one already linked
-  $ mkdir _install_relocatable/lib/threads
-  $ echo 'package "posix" ( )' > _install_relocatable/lib/threads/META
-
 Once installed, we have the sites information:
 
   $ _install_relocatable/bin/c

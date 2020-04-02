@@ -69,7 +69,8 @@ module type File_operations = sig
     -> special_file:Special_file.t option
     -> package:Package.Name.t
     -> get_location:(Dune.Section.t -> Package.Name.t -> Stdune.Path.t)
-    -> is_relocatable:(Path.t option)
+    -> hardcodedOcamlPath:Dune.Artifact_substitution.hardcodedOcamlPath
+    -> stdlib:Stdune.Path.t
     -> unit Fiber.t
 
   val mkdir_p : Path.t -> unit
@@ -85,7 +86,7 @@ end
 
 module File_ops_dry_run : File_operations = struct
   let copy_file ~src ~dst ~executable ~special_file:_ ~package:_ ~get_location:_
-    ~is_relocatable:_ =
+    ~hardcodedOcamlPath:_ ~stdlib:_ =
     Format.printf "Copying %s to %s (executable: %b)\n"
       (Path.to_string_maybe_quoted src)
       (Path.to_string_maybe_quoted dst)
@@ -222,7 +223,7 @@ module File_ops_real (W : Workspace) : File_operations = struct
           Format.pp_close_box ppf ())
 
   let copy_file ~src ~dst ~executable ~special_file ~package ~get_location
-    ~is_relocatable =
+    ~hardcodedOcamlPath ~stdlib =
     let chmod =
       if executable then
         fun _ ->
@@ -246,8 +247,11 @@ module File_ops_real (W : Workspace) : File_operations = struct
             ~conf:{
               get_vcs;
               get_location;
-              get_localPath=(fun _ -> None);
-              is_relocatable;
+              get_configPath=(function
+                | SourceRoot -> None
+                | Stdlib -> Some stdlib
+              );
+              hardcodedOcamlPath;
             }
             ~input:(input ic)
             ~output:(output oc))
@@ -474,9 +478,12 @@ let install_uninstall ~what =
                 get_dirs context ~prefix_from_command_line
                   ~libdir_from_command_line
               in
-              let is_relocatable =
-                if relocatable then Some prefix else None
+              let hardcodedOcamlPath =
+                if relocatable
+                then Dune.Artifact_substitution.Relocatable prefix
+                else Dune.Artifact_substitution.Hardcoded context.default_ocamlpath
               in
+              let stdlib = context.stdlib_dir in
               Fiber.sequential_iter entries_per_package
                 ~f:(fun (package, entries) ->
                   let paths =
@@ -508,7 +515,8 @@ let install_uninstall ~what =
                         in
                         Ops.copy_file ~src:entry.src ~dst ~executable
                           ~special_file ~package ~get_location
-                          ~is_relocatable
+                          ~hardcodedOcamlPath
+                          ~stdlib
                       ) else (
                         Ops.remove_if_exists dst;
                         files_deleted_in := Path.Set.add !files_deleted_in dir;

@@ -28,41 +28,49 @@ open Import
 
    Replacements that are too long are truncated. *)
 
-type localpath =
+
+type configpath =
   | SourceRoot
-  | InstallLib
+  | Stdlib
 
 type t =
   | Vcs_describe of Path.Source.t
   | Location of Section.t * Package.Name.t
-  | LocalPath of localpath
-  | Relocatable
+  | ConfigPath of configpath
+  | HardcodedOcamlPath
   | Repeat of int * string
+
+type hardcodedOcamlPath =
+  | Hardcoded of  Path.t list
+  | Relocatable of Path.t
 
 type conf = {
   get_vcs:(Path.Source.t -> Vcs.t option);
   get_location:(Section.t -> Package.Name.t -> Path.t);
-  get_localPath:(localpath -> Path.t option);
-  is_relocatable: Path.t option;
+  get_configPath:(configpath -> Path.t option);
+  hardcodedOcamlPath: hardcodedOcamlPath;
 }
 
 let to_dyn = function
   | Vcs_describe p -> Dyn.Variant ("Vcs_describe", [ Path.Source.to_dyn p ])
   | Location (kind,lib_name) ->
     Dyn.Variant ("Location", [ Section.to_dyn kind; Package.Name.to_dyn lib_name ])
-  | LocalPath d  ->
-    let v = match d with | SourceRoot -> "SourceRoot" | InstallLib -> "InstallLib" in
-    Dyn.Variant ("LocalPath",[Dyn.Variant(v,[])])
-  | Relocatable ->
-    Dyn.Variant ("Relocatable",[])
+  | ConfigPath d  ->
+    let v = match d with
+      | SourceRoot -> "SourceRoot"
+      | Stdlib     -> "Stdlib"
+    in
+    Dyn.Variant ("ConfigPath",[Dyn.Variant(v,[])])
+  | HardcodedOcamlPath ->
+    Dyn.Variant ("HardcodedOcamlPath",[])
   | Repeat (n, s) -> Dyn.Variant ("Repeat", [ Int n; String s ])
 
 let eval t ~conf =
   let relocatable path =
     (* return a relative path to the install directory in case of relocatable instead of absolute path *)
-    match conf.is_relocatable with
-    | None -> Path.to_absolute_filename path
-    | Some install -> Path.reach path ~from:install
+    match conf.hardcodedOcamlPath with
+    | Hardcoded _ -> Path.to_absolute_filename path
+    | Relocatable install -> Path.reach path ~from:install
   in
   match t with
   | Repeat (n, s) ->
@@ -73,14 +81,20 @@ let eval t ~conf =
     | Some vcs -> Vcs.describe vcs )
   | Location (name,lib_name) ->
     Fiber.return (relocatable (conf.get_location name lib_name))
-  | LocalPath d ->
+  | ConfigPath d ->
     Fiber.return
       (Option.value ~default:""
          (let open Option.O in
-          let+ dir = (conf.get_localPath d) in
+          let+ dir = (conf.get_configPath d) in
           relocatable dir))
-  | Relocatable ->
-    Fiber.return (if Option.is_some conf.is_relocatable then "y" else "n")
+  | HardcodedOcamlPath ->
+    Fiber.return (
+      match conf.hardcodedOcamlPath with
+      | Relocatable _ -> "relocatable"
+      | Hardcoded l ->
+        let l = List.map l ~f:Path.to_absolute_filename in
+        "hardcoded\000" ^ (String.concat ~sep:"\000" l)
+    )
 
 let encode_replacement ~len ~repl:s =
   let repl = sprintf "=%u:%s" (String.length s) s in
@@ -106,12 +120,12 @@ let encode ?(min_len = 0) t =
         let name = Package.Name.to_string name in
         sprintf "location:%s:%d:%s"
           (Section.to_string kind) (String.length name) name
-      | LocalPath SourceRoot ->
-        sprintf "localpath:sourceroot:"
-      | LocalPath InstallLib ->
-        sprintf "localpath:installlib:"
-      | Relocatable ->
-        sprintf "relocatable"
+      | ConfigPath SourceRoot ->
+        sprintf "configpath:sourceroot:"
+      | ConfigPath Stdlib ->
+        sprintf "configpath:stdlib:"
+      | HardcodedOcamlPath ->
+        sprintf "hardcodedOcamlPath:"
       | Repeat (n, s) -> sprintf "repeat:%d:%d:%s" n (String.length s) s )
   in
   let len =
@@ -178,12 +192,12 @@ let decode s =
       let name = Package.Name.of_string (read_string_payload rest) in
       let kind = Option.value_exn (Section.of_string kind) in
       Location(kind, name)
-    | "localpath" :: "sourceroot" :: _ ->
-      LocalPath SourceRoot
-    | "localpath" :: "installlib" :: _ ->
-      LocalPath InstallLib
-    | "relocatable" :: _ ->
-      Relocatable
+    | "configpath" :: "sourceroot" :: _ ->
+      ConfigPath SourceRoot
+    | "configpath" :: "stdlib" :: _ ->
+      ConfigPath Stdlib
+    | "hardcodedOcamlPath" :: _ ->
+      HardcodedOcamlPath
     | "repeat" :: repeat :: rest ->
       Repeat (parse_int repeat, read_string_payload rest)
     | _ -> fail ()

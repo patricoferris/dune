@@ -1643,25 +1643,38 @@ end = struct
                    source tree to be writable by the user, so we explicitly set
                    the user writable bit. *)
                 let chmod n = n lor 0o200 in
-                let get_location =
-                  let context = Option.value_exn context in
-                  Install.Section.Paths.get_local_location context.name
-                in
-                let get_localPath =
-                  function
-                  | Artifact_substitution.InstallLib ->
-                    let context = Option.value_exn context in
-                    let install_dir = Config.local_install_dir ~context:context.name in
-                    Some (Path.build (Path.Build.relative install_dir "lib"))
-                  | SourceRoot ->
-                    Some (Path.source Path.Source.root)
+                let conf : Artifact_substitution.conf =
+                  match context with
+                  | Some context ->
+                    let get_location =
+                      Install.Section.Paths.get_local_location context.name
+                    in
+                    let get_configPath =
+                      function
+                      | Artifact_substitution.SourceRoot ->
+                        Some (Path.source Path.Source.root)
+                      | Stdlib ->
+                        Some context.stdlib_dir
+                    in
+                    let hardcodedOcamlPath =
+                      let install_dir = Config.local_install_dir ~context:context.name in
+                      let install_dir = Path.build (Path.Build.relative install_dir "lib") in
+                      Artifact_substitution.Hardcoded (install_dir::context.default_ocamlpath)
+                    in
+                    { get_vcs = File_tree.nearest_vcs;
+                          get_location;
+                          get_configPath;
+                          hardcodedOcamlPath;
+                    }
+                  | None ->
+                    { get_vcs = File_tree.nearest_vcs;
+                      get_location = (fun _ _ -> Code_error.raise "no context available" []);
+                      get_configPath = (fun _ -> Code_error.raise "no context available" []);
+                      hardcodedOcamlPath = Hardcoded [];
+                    }
                 in
                 Artifact_substitution.copy_file () ~src:path ~dst:in_source_tree
-                  ~conf:{ get_vcs = File_tree.nearest_vcs;
-                          get_location;
-                          get_localPath;
-                          is_relocatable = None;
-                        }
+                  ~conf
                   ~chmod ))
     in
     t.rule_done <- t.rule_done + 1

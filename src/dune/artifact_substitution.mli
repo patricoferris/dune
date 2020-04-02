@@ -2,25 +2,30 @@
 
 open Stdune
 
-type localpath =
+type configpath =
   | SourceRoot
-  | InstallLib
+  | Stdlib
 
 (** A symbolic representation of the value to substitute to *)
 type t =
   | Vcs_describe of Path.Source.t
   | Location of Section.t * Package.Name.t
-  | LocalPath of localpath
-  | Relocatable
+  | ConfigPath of configpath
+  | HardcodedOcamlPath
   | Repeat of int * string
       (** [Repeat (n, s)] evaluates to [s] repeated [n] times. This substitution
           is used for unit tests. *)
 
+
+type hardcodedOcamlPath =
+  | Hardcoded of  Path.t list
+  | Relocatable of Path.t
+
 type conf = {
   get_vcs:(Path.Source.t -> Vcs.t option);
   get_location:(Section.t -> Package.Name.t -> Path.t);
-  get_localPath:(localpath -> Path.t option);
-  is_relocatable: Path.t option
+  get_configPath:(configpath -> Path.t option);
+  hardcodedOcamlPath: hardcodedOcamlPath;
   (** Initial prefix of installation when relocatable chosen *)
 }
 

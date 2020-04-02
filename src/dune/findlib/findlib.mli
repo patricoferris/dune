@@ -18,6 +18,9 @@ val create :
 (** The search path for this DB *)
 val paths : t -> Path.t list
 
+(** The builtins packages *)
+val builtins : t -> Meta.Simplified.t Package.Name.Map.t
+
 val findlib_predicates_set_by_dune : Variant.Set.t
 
 module Unavailable_reason : sig

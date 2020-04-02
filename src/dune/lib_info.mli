@@ -52,7 +52,7 @@ module Special_builtin_support : sig
 
   module Sites_locations : sig
     type t =
-      { data_module : string }
+      { data_module : string; plugins: bool }
   end
 
   type t =

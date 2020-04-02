@@ -158,8 +158,8 @@ let test input =
        ~conf:{
          get_vcs=(fun _ -> None);
          get_location=(fun _ _ -> Path.root);
-         get_localPath=(fun _ -> None);
-         is_relocatable=None;
+         get_configPath=(fun _ -> None);
+         hardcodedOcamlPath=Hardcoded [];
        }
        ~input ~output);
   let result = Buffer.contents buf in

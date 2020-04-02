@@ -176,6 +176,8 @@ type db =
   ; lib_config : Lib_config.t
   }
 
+let builtins db = db.builtins
+
 let paths t = t.paths
 
 let findlib_predicates_set_by_dune =
