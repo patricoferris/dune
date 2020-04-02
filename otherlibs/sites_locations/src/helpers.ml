@@ -60,20 +60,6 @@ let () =
     let l = String.split_on_char path_sep s in
     aux l
 
-(* Parse the replacement format described in [artifact_substitution.ml]. *)
-let eval s =
-  let len = String.length s in
-  if s.[0] = '=' then
-    let colon_pos = String.index_from s 1 ':' in
-    let vlen = int_of_string (String.sub s 1 (colon_pos - 1)) in
-    (* This [min] is because the value might have been truncated
-       if it was too large *)
-    let vlen = min vlen (len - colon_pos - 1) in
-    Some (String.sub s (colon_pos + 1) vlen)
-  else
-    None
-[@@inline never]
-
 let get_dir ~package ~section =
   Hashtbl.find_all dirs (package,section)
 
@@ -85,7 +71,8 @@ module HardcodedOcamlPath = struct
     | FindlibConfig of string
 
   let t = lazy (
-    match eval Sites_locations_data.hardcoded_ocamlpath with
+    match Dune_artifact_eval.get
+            Sites_locations_data.hardcoded_ocamlpath with
     | None -> None
     | Some "relocatable" -> Relocatable
     | Some s ->
@@ -117,7 +104,7 @@ let relocate_if_needed path =
 
 let site ~package ~section ~suffix ~encoded =
   let dirs = get_dir ~package ~section in
-  let dirs = match eval encoded with
+  let dirs = match Dune_artifact_eval.get encoded with
     | None -> dirs
     | Some d -> (relocate_if_needed d)::dirs
   in
@@ -125,7 +112,7 @@ let site ~package ~section ~suffix ~encoded =
 [@@inline never]
 
 let sourceroot local =
-  match eval local with
+  match Dune_artifact_eval.get local with
   | Some "" -> None
   | Some _ as x -> x
   | None ->
@@ -154,7 +141,7 @@ let ocamlpath = lazy (
   env@static)
 
 let stdlib = lazy (
-  match eval Sites_locations_data.stdlib_dir with
+  match Dune_artifact_eval.get Sites_locations_data.stdlib_dir with
   | None -> Sys.getenv "DUNE_OCAML_STDLIB"
   | Some s -> s
 )

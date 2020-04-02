@@ -148,22 +148,8 @@ let build_info_code cctx ~libs ~api_version =
               placeholder p ) ))
   in
   let buf = Buffer.create 1024 in
-  (* Parse the replacement format described in [artifact_substitution.ml]. *)
-  pr buf "let eval s =";
-  pr buf "  let len = String.length s in";
-  pr buf "  if s.[0] = '=' then";
-  pr buf "    let colon_pos = String.index_from s 1 ':' in";
-  pr buf "    let vlen = int_of_string (String.sub s 1 (colon_pos - 1)) in";
-  pr buf "    (* This [min] is because the value might have been truncated";
-  pr buf "       if it was too large *)";
-  pr buf "    let vlen = min vlen (len - colon_pos - 1) in";
-  pr buf "    Some (String.sub s (colon_pos + 1) vlen)";
-  pr buf "  else";
-  pr buf "    None";
-  pr buf "[@@inline never]";
-  pr buf "";
   Path.Source.Map.iteri !placeholders ~f:(fun path var ->
-      pr buf "let %s = eval %S" var
+      pr buf "let %s = Dune_artifact_eval.eval %S" var
         (Artifact_substitution.encode ~min_len:64 (Vcs_describe path)));
   if not (Path.Source.Map.is_empty !placeholders) then pr buf "";
   pr buf "let version = %s" version;
@@ -175,9 +161,9 @@ let build_info_code cctx ~libs ~api_version =
 
 let sites_locations_code () =
   let buf = Buffer.create 5000 in
-  pr buf "let hardcoded_ocamlpath = (Sys.opaque_identity %S)"
+  pr buf "let hardcoded_ocamlpath = Dune_artifact_eval.encoded %S"
     (Artifact_substitution.encode ~min_len:4096 HardcodedOcamlPath);
-  pr buf "let stdlib_dir = (Sys.opaque_identity %S)"
+  pr buf "let stdlib_dir = Dune_artifact_eval.encoded %S"
     (Artifact_substitution.encode ~min_len:4096 (ConfigPath Stdlib));
   Buffer.contents buf
 

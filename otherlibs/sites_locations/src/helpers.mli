@@ -24,11 +24,11 @@ module Section : sig
 end
 
 val site : package:string -> section:Section.t ->
-  suffix:string -> encoded:string -> Location.t list
+  suffix:string -> encoded:Dune_artifact_eval.t -> Location.t list
 
 val relocatable: bool Lazy.t
 val ocamlpath: string list Lazy.t
-val sourceroot: string -> string option
+val sourceroot: Dune_artifact_eval.t -> string option
 val stdlib: string Lazy.t
 
 val path_sep: string

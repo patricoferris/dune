@@ -6,19 +6,19 @@ let max_path_length = 4096
 let pr buf fmt = Printf.bprintf buf (fmt ^^ "\n")
 
 
-let encode buf e =
-  Printf.bprintf buf "(Sys.opaque_identity %S)"
-    (Artifact_substitution.encode ~min_len:max_path_length e)
-
 let helpers = "Sites_locations.Private_.Helpers"
 let plugins = "Sites_locations_plugins.Private_.Plugins"
+
+let encode buf e =
+  Printf.bprintf buf "(Sites_locations.Private_.Artifact.encoded %S)"
+    (Artifact_substitution.encode ~min_len:max_path_length e)
 
 let sourceroot_code buf =
   pr buf "let sourceroot = %s.sourceroot %a"
     helpers encode (ConfigPath SourceRoot)
 
 let relocatable_code buf =
-  pr buf "let relocatable = Lazy.force %s.relocatable"
+  pr buf "let relocatable = %s.relocatable"
     helpers
 
 let sites_code sctx buf (loc,pkg) =

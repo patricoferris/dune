@@ -7,4 +7,5 @@
   (sites_locations
    (data_module sites_locations_data)
  ))
+ (libraries dune-private-libs.artifact-eval)
 )
