@@ -58,22 +58,50 @@ let rec get_plugin directory plugins requires entries =
   | (Rule _)::entries ->
     get_plugin directory plugins requires entries
 
-exception Lib_not_found
+exception Lib_not_found of string
 
 let rec find_library ~rest meta =
   match rest with
   | [] -> meta
   | pkg::rest ->
     let rec aux pkg = function
-      | [] -> raise Lib_not_found
+      | [] -> raise (Lib_not_found pkg)
       | (Meta_parser.Package { name = Some name; entries })::_
         when String.equal name pkg -> find_library ~rest entries
       | _::entries -> aux pkg entries
     in
     aux pkg meta
 
+
+let extract_words s ~is_word_char =
+  let rec skip_blanks i =
+    if i = String.length s then
+      []
+    else if is_word_char s.[i] then
+      parse_word i (i + 1)
+    else
+      skip_blanks (i + 1)
+  and parse_word i j =
+    if j = String.length s then
+      [ StringLabels.sub s ~pos:i ~len:(j - i) ]
+    else if is_word_char s.[j] then
+      parse_word i (j + 1)
+    else
+      StringLabels.sub s ~pos:i ~len:(j - i) :: skip_blanks (j + 1)
+  in
+  skip_blanks 0
+
+let extract_comma_space_separated_words s =
+  extract_words s ~is_word_char:(function
+    | ','
+    | ' '
+    | '\t'
+    | '\n' ->
+      false
+    | _ -> true)
+
 let split_all l =
-  List.concat (List.map (String.split_on_char ' ') l)
+  List.concat (List.map extract_comma_space_separated_words l)
 
 let find_plugin ~dir ~rest meta =
   let directory,plugins,requires =
