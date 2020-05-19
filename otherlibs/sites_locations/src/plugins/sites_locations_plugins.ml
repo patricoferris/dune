@@ -2,3 +2,7 @@ module Private_ = struct
   module Plugins = Plugins
   module Meta_parser = Meta_parser
 end
+
+module V1 = struct
+  let load = Plugins.load
+end

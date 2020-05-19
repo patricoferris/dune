@@ -200,13 +200,17 @@ let load_gen ~load_requires dirs name =
       Dynlink.loadfile file) plugins
   end
 
-let load_plugin plugin_paths ocamlpath name =
-  let rec load_requires name = load_gen ~load_requires ocamlpath name in
+let rec load_requires name =
+  load_gen ~load_requires (Lazy.force Helpers.ocamlpath) name
+
+let load_plugin plugin_paths name =
   load_gen ~load_requires plugin_paths name
 
 module Make (X:sig val paths: string list end) : S = struct
   include X
   let list () = readdir paths
-  let load name = load_plugin paths (Lazy.force Helpers.ocamlpath) name
+  let load name = load_plugin paths name
   let load_all () = List.iter load  (list ())
 end
+
+let load = load_requires

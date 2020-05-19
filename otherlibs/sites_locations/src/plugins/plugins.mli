@@ -6,3 +6,5 @@ module type S = sig
 end
 
 module Make(X:sig val paths : string list end): S
+
+val load: string -> unit
